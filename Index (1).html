@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mini Job Board</title>
+  <style>
+    body { font-family: Arial; margin: 20px; }
+    .hidden { display: none; }
+    input, button, textarea, select { margin: 5px 0; display: block; }
+    .job-card { border: 1px solid #ccc; padding: 10px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+<h2>Job Board App</h2>
+
+<div id="auth-section">
+  <h3>Register</h3>
+  <input type="text" id="regEmail" placeholder="Email">
+  <input type="password" id="regPassword" placeholder="Password">
+  <select id="regRole">
+    <option value="employer">Employer</option>
+    <option value="seeker">Job Seeker</option>
+  </select>
+  <button onclick="register()">Register</button>
+
+  <h3>OTP Verification</h3>
+  <input type="text" id="otpInput" placeholder="Enter OTP">
+  <button onclick="verifyOTP()">Verify OTP</button>
+
+  <h3>Login</h3>
+  <input type="text" id="loginEmail" placeholder="Email">
+  <input type="password" id="loginPassword" placeholder="Password">
+  <button onclick="login()">Login</button>
+</div>
+
+<div id="dashboard-section" class="hidden">
+  <h3>Welcome, <span id="userEmail"></span> (<span id="userRole"></span>)</h3>
+  <button onclick="logout()">Logout</button>
+
+  <div id="employerPanel" class="hidden">
+    <h4>Post a Job</h4>
+    <input type="text" id="jobTitle" placeholder="Job Title">
+    <textarea id="jobDesc" placeholder="Job Description"></textarea>
+    <button onclick="postJob()">Post Job</button>
+
+    <h4>Applicants</h4>
+    <div id="applicantsList"></div>
+  </div>
+
+  <div id="seekerPanel" class="hidden">
+    <h4>Search Jobs</h4>
+    <input type="text" id="searchTerm" placeholder="Search by title">
+    <button onclick="searchJobs()">Search</button>
+    <div id="jobResults"></div>
+  </div>
+</div>
+
+<script>
+let currentUser = null;
+let fakeOTP = "";
+
+function saveData(key, data) {
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+function getData(key) {
+  return JSON.parse(localStorage.getItem(key)) || [];
+}
+
+function register() {
+  const email = document.getElementById("regEmail").value;
+  const password = document.getElementById("regPassword").value;
+  const role = document.getElementById("regRole").value;
+
+  const users = getData("users");
+  if (users.find(u => u.email === email)) return alert("Email already exists");
+
+  fakeOTP = Math.floor(1000 + Math.random() * 9000).toString();
+  alert("OTP sent: " + fakeOTP); // Simulated email OTP
+
+  users.push({ email, password, role, verified: false });
+  saveData("users", users);
+}
+
+function verifyOTP() {
+  const otp = document.getElementById("otpInput").value;
+  if (otp === fakeOTP) {
+    const users = getData("users");
+    const lastUser = users[users.length - 1];
+    lastUser.verified = true;
+    saveData("users", users);
+    alert("OTP Verified! You can now login.");
+  } else {
+    alert("Invalid OTP");
+  }
+}
+
+function login() {
+  const email = document.getElementById("loginEmail").value;
+  const password = document.getElementById("loginPassword").value;
+  const users = getData("users");
+
+  const user = users.find(u => u.email === email && u.password === password && u.verified);
+  if (!user) return alert("Invalid login or unverified account");
+
+  currentUser = user;
+  showDashboard();
+}
+
+function logout() {
+  currentUser = null;
+  document.getElementById("dashboard-section").classList.add("hidden");
+  document.getElementById("auth-section").classList.remove("hidden");
+}
+
+function showDashboard() {
+  document.getElementById("auth-section").classList.add("hidden");
+  document.getElementById("dashboard-section").classList.remove("hidden");
+  document.getElementById("userEmail").innerText = currentUser.email;
+  document.getElementById("userRole").innerText = currentUser.role;
+
+  if (currentUser.role === "employer") {
+    document.getElementById("employerPanel").classList.remove("hidden");
+    document.getElementById("seekerPanel").classList.add("hidden");
+    loadApplicants();
+  } else {
+    document.getElementById("seekerPanel").classList.remove("hidden");
+    document.getElementById("employerPanel").classList.add("hidden");
+  }
+}
+
+function postJob() {
+  const title = document.getElementById("jobTitle").value;
+  const desc = document.getElementById("jobDesc").value;
+  const jobs = getData("jobs");
+  jobs.push({ title, desc, postedBy: currentUser.email, applicants: [] });
+  saveData("jobs", jobs);
+  alert("Job Posted!");
+}
+
+function searchJobs() {
+  const term = document.getElementById("searchTerm").value.toLowerCase();
+  const jobs = getData("jobs");
+  const container = document.getElementById("jobResults");
+  container.innerHTML = "";
+
+  jobs.filter(j => j.title.toLowerCase().includes(term)).forEach((job, idx) => {
+    const div = document.createElement("div");
+    div.className = "job-card";
+    div.innerHTML = `<strong>${job.title}</strong><br>${job.desc}<br>
+                     <button onclick="applyJob(${idx})">Apply</button>`;
+    container.appendChild(div);
+  });
+}
+
+function applyJob(index) {
+  const jobs = getData("jobs");
+  const job = jobs[index];
+  if (!job.applicants.includes(currentUser.email)) {
+    job.applicants.push(currentUser.email);
+    saveData("jobs", jobs);
+    alert("Applied!");
+  } else {
+    alert("You already applied.");
+  }
+}
+
+function loadApplicants() {
+  const jobs = getData("jobs");
+  const container = document.getElementById("applicantsList");
+  container.innerHTML = "";
+
+  jobs.filter(j => j.postedBy === currentUser.email).forEach(job => {
+    const div = document.createElement("div");
+    div.className = "job-card";
+    div.innerHTML = `<strong>${job.title}</strong><br>Applicants: ${job.applicants.join(", ") || "None"}`;
+    container.appendChild(div);
+  });
+}
+</script>
+
+</body>
+</html>
